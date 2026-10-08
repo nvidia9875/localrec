@@ -80,4 +80,17 @@ public struct StoragePaths: Sendable {
     public func asrAudioFile(_ id: String, track: TrackKind) -> URL {
         audioDirectory(id).appendingPathComponent("asr_\(track.rawValue).wav")
     }
+
+    /// 続きから録音している間の書き込み先。例: `audio/.pending_mic.m4a`
+    ///
+    /// m4a には追記できないので、続きは別ファイルに録り、停止時に本体へつなぐ。
+    /// つなぐ前にアプリが落ちてもここに残り、次に続きを録るときに回収される。
+    public func pendingAudioFile(_ id: String, track: TrackKind) -> URL {
+        audioDirectory(id).appendingPathComponent(".pending_\(track.rawValue).m4a")
+    }
+
+    /// 続きの ASR 用 WAV。例: `audio/.pending_asr_mic.wav`
+    public func pendingASRAudioFile(_ id: String, track: TrackKind) -> URL {
+        audioDirectory(id).appendingPathComponent(".pending_asr_\(track.rawValue).wav")
+    }
 }

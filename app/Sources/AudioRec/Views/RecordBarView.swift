@@ -12,10 +12,15 @@ struct RecordBarView: View {
             elapsed
             if let progress = model.session.modelDownloadProgress {
                 downloadIndicator(progress)
+            } else if model.session.isSaving {
+                statusText("保存しています…", showsProgress: true)
+            } else if model.session.isPaused {
+                statusText("一時停止中", showsProgress: false)
             } else {
                 WaveformView(levels: model.session.levels)
                     .frame(maxWidth: .infinity)
             }
+            pauseButton
             stopButton
         }
         .padding(.horizontal, Theme.Metrics.contentPadding)
@@ -26,11 +31,32 @@ struct RecordBarView: View {
         }
     }
 
+    /// 録っている間だけ赤く点滅させる。止めている間に点滅していると、録れていると誤解する。
+    @ViewBuilder
     private var recordingIndicator: some View {
-        Circle()
-            .fill(Theme.Palette.recording)
-            .frame(width: 8, height: 8)
-            .modifier(PulseEffect())
+        if model.session.isPaused || model.session.isSaving {
+            Circle()
+                .fill(Theme.Palette.textMuted)
+                .frame(width: 8, height: 8)
+        } else {
+            Circle()
+                .fill(Theme.Palette.recording)
+                .frame(width: 8, height: 8)
+                .modifier(PulseEffect())
+        }
+    }
+
+    private func statusText(_ text: String, showsProgress: Bool) -> some View {
+        HStack(spacing: 8) {
+            if showsProgress {
+                ProgressView().controlSize(.small)
+            }
+            Text(text)
+                .font(Theme.Font.meta)
+                .foregroundStyle(Theme.Palette.textMuted)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var elapsed: some View {
@@ -54,6 +80,27 @@ struct RecordBarView: View {
         }
     }
 
+    private var pauseButton: some View {
+        let isPaused = model.session.isPaused
+        return Button {
+            model.togglePause()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: isPaused ? "record.circle" : "pause.fill").font(.system(size: 9))
+                Text(isPaused ? "再開" : "一時停止").font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(Theme.Palette.text)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 5)
+            .background(Theme.Palette.surfaceHover)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.radius))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.session.isSaving)
+        .keyboardShortcut("p", modifiers: [.command, .shift])
+        .help(isPaused ? "録音を再開 (⇧⌘P)" : "録音を一時停止 (⇧⌘P)")
+    }
+
     private var stopButton: some View {
         Button {
             Task { await model.stopRecording() }
@@ -69,8 +116,9 @@ struct RecordBarView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.radius))
         }
         .buttonStyle(.plain)
-        // ⌘R はサイドバーの録音ボタン (開始/停止のトグル) に持たせている。
-        // ここで二重に定義すると SwiftUI がどちらを呼ぶか不定になる。
+        .disabled(model.session.isSaving)
+        // 開始は詳細ペインの「録音を開始」が同じ ⌘R を持つ。録音中はあちらが消えるので衝突しない
+        .keyboardShortcut("r", modifiers: .command)
         .help("録音を停止 (⌘R)")
     }
 }

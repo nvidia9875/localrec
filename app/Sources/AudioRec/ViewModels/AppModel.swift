@@ -114,7 +114,18 @@ final class AppModel {
     let session: RecordingSession
     let playback = PlaybackController()
 
-    var isRecording: Bool { session.isRecording }
+    var isRecording: Bool { session.isRecording || isSnapshotRecording }
+
+    /// スナップショットで録音中の画面を描くときだけ立てる。
+    private var isSnapshotRecording = false
+
+    /// 選択中の録音に音声があるか。「録音を開始」と「続きを録音」の出し分けに使う。
+    var selectedHasAudio: Bool {
+        guard let recording = selectedRecording else { return false }
+        return recording.meta.duration > 0
+            || FileManager.default.fileExists(
+                atPath: store.paths.audioFile(recording.id, track: .mic).path)
+    }
 
     // MARK: - 依存
 
@@ -143,19 +154,58 @@ final class AppModel {
     /// 有効だとマイクと別トラックになり、話者ラベルが付く。
     var captureSystemAudio = true
 
-    func toggleRecording() async {
-        session.isRecording ? await stopRecording() : await startRecording()
-    }
-
-    func startRecording() async {
+    /// 選択中の録音に録音する。音声があれば続きから、無ければ頭から録る。
+    func recordIntoSelected() async {
+        guard let id = selectedRecording?.id, !session.isRecording else { return }
+        // 書きかけの名前とメモを先に落とす。録音の開始で meta を書き直すため
+        await flushTitle()
+        await flushMemo()
+        // 再生中のファイルは停止時に書き換わる。開いたままにしない
+        playback.load(url: nil)
         do {
-            let meta = try await session.start(
-                engineKind: engineKind, captureSystemAudio: captureSystemAudio)
-            recordings.insert(meta, at: 0)
-            selectedID = meta.id
+            apply(try await session.start(
+                into: id, engineKind: engineKind, captureSystemAudio: captureSystemAudio))
+            detailTab = .transcript
         } catch {
             errorMessage = error.localizedDescription
+            loadPlaybackAudio()
         }
+    }
+
+    /// 録音せずに空の録音を作る。メモを先に書いておき、録音は後から始められる。
+    func createEmptyRecording() async {
+        do {
+            let created = try await store.create(title: Self.emptyTitle())
+            // まだ何も録っていない。トラックを持たせると「マイクで録った」ように見える
+            let meta = created.with(tracks: [])
+            try await store.saveMeta(meta)
+            recordings.insert(meta, at: 0)
+            await searchIndex.update(recordingID: meta.id, title: meta.title, transcript: .empty)
+            selectedID = meta.id
+            detailTab = .memo
+        } catch {
+            errorMessage = "新しい録音を作れませんでした: \(error.localizedDescription)"
+        }
+    }
+
+    func togglePause() {
+        guard session.isRecording else { return }
+        if session.isPaused {
+            do {
+                try session.resume()
+            } catch {
+                errorMessage = "録音を再開できませんでした: \(error.localizedDescription)"
+            }
+        } else {
+            session.pause()
+        }
+    }
+
+    private static func emptyTitle(now: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "M月d日 HH:mm のメモ"
+        return f.string(from: now)
     }
 
     func stopRecording() async {
@@ -165,12 +215,12 @@ final class AppModel {
             await searchIndex.update(
                 recordingID: meta.id, title: meta.title,
                 transcript: session.liveTranscript.sorted())
-            // 長さが確定したので選択中の録音を読み直し、再生できる状態にする
-            await loadSelected()
-            loadPlaybackAudio()
         } catch {
             errorMessage = "録音を保存できませんでした: \(error.localizedDescription)"
         }
+        // 失敗しても、ディスクに残った分を読み直して画面と揃える
+        await loadSelected()
+        loadPlaybackAudio()
     }
 
     /// スナップショット生成用にディスクを介さず状態を差し込む。
@@ -179,6 +229,11 @@ final class AppModel {
         self.recordings = recordings
         self.selectedRecording = selected
         applyTitleFromDisk(selected?.meta.title ?? "", owner: selected?.id)
+    }
+
+    /// スナップショット生成用に録音中の状態にする。
+    func injectRecordingForSnapshot() {
+        isSnapshotRecording = true
     }
 
     /// スナップショット生成用に要約を差し込む。

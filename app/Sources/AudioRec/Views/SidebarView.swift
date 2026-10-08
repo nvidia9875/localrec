@@ -34,7 +34,7 @@ struct SidebarView: View {
                 .monospacedDigit()
             Spacer()
             enginePicker
-            recordButton
+            newButton
         }
         .padding(.horizontal, 14)
         .padding(.top, 10)
@@ -74,25 +74,27 @@ struct SidebarView: View {
         .help("文字起こしエンジン: \(model.engineKind.displayName)")
     }
 
-    private var recordButton: some View {
+    /// 新規作成。録音はいきなり始めず、空の録音を作って開くだけにする。
+    /// 録音は開いた先の「録音を開始」から始める。
+    private var newButton: some View {
         Button {
-            Task { await model.toggleRecording() }
+            Task { await model.createEmptyRecording() }
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: model.isRecording ? "stop.fill" : "record.circle")
-                    .font(.system(size: 10))
-                Text(model.isRecording ? "停止" : "録音")
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("新規")
                     .font(.system(size: 12, weight: .medium))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.Palette.background)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(Theme.Palette.recording)
+            .background(Theme.Palette.text)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.radius))
         }
         .buttonStyle(.plain)
-        .keyboardShortcut("r", modifiers: .command)
-        .help(model.isRecording ? "録音を停止 (⌘R)" : "録音を開始 (⌘R)")
+        .keyboardShortcut("n", modifiers: .command)
+        .help("新規作成 (⌘N)。録音は開いた先の「録音を開始」から始めます")
     }
 
     private var searchField: some View {

@@ -12,6 +12,11 @@ struct AudioRecApp: App {
         }
         .defaultSize(width: 1120, height: 760)
         .windowToolbarStyle(.unifiedCompact)
+        .commands {
+            // ⌘N は「新規作成（録音せずに作る）」に使う。
+            // 既定の「新規ウインドウ」は録音状態を別々に持つ窓が増えるだけなので外す。
+            CommandGroup(replacing: .newItem) {}
+        }
     }
 }
 

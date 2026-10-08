@@ -28,6 +28,13 @@ enum RecordingSelfTest {
         return URL(fileURLWithPath: arguments[index + 1])
     }
 
+    /// `--mic-only` ならシステム音声を録らない。
+    /// システム音声は署名が変わるたびに許可を訊き直されるので、
+    /// ダイアログに応えられない場面ではマイクだけで確かめる。
+    static func isMicOnly(_ arguments: [String] = CommandLine.arguments) -> Bool {
+        arguments.contains("--mic-only")
+    }
+
     /// 検証を実行する。すべて通れば true。
     static func run(
         duration: TimeInterval, reportPath: URL?, playbackFile: URL? = nil
@@ -61,7 +68,7 @@ enum RecordingSelfTest {
         let store = RecordingStore(paths: StoragePaths(root: root))
         let session = RecordingSession(store: store)
 
-        emit("\n[1/3] マイクの権限")
+        emit("\n[1/4] マイクの権限")
         let permission = await MicPermission.request()
         check("許可されている", permission == .granted, permission == .granted ? "" : "\(permission)")
         guard permission == .granted else {
@@ -69,7 +76,7 @@ enum RecordingSelfTest {
             return false
         }
 
-        emit("\n[2/3] 録音")
+        emit("\n[2/4] 録音")
         // システム音声トラックの検証用に、テスト中は音を鳴らしておく。
         // 無音のままだとトラックが作られても中身が空で、成否が判別できない。
         var player: AVAudioPlayer?
@@ -81,7 +88,7 @@ enum RecordingSelfTest {
         }
         let meta: RecordingMeta
         do {
-            meta = try await session.start(title: "自己診断")
+            meta = try await session.start(title: "自己診断", captureSystemAudio: !isMicOnly())
         } catch {
             check("録音を開始できた", false, error.localizedDescription)
             return false
@@ -104,7 +111,7 @@ enum RecordingSelfTest {
         }
         check("録音を停止できた", stopped != nil)
 
-        emit("\n[3/3] 出力ファイル")
+        emit("\n[3/4] 出力ファイル")
         let recorded = stopped?.duration ?? 0
         // 実測の長さが指定の ±25% に収まっていること
         check("長さが妥当", abs(recorded - duration) < duration * 0.25,
@@ -148,8 +155,63 @@ enum RecordingSelfTest {
             check("wav を読み込める", false)
         }
 
+        await checkAppend(
+            session: session, store: store, id: meta.id, before: recorded, duration: duration,
+            emit: emit, check: { check($0, $1, $2) })
+
         emit("\n\(ok ? "すべて通過しました" : "失敗した項目があります")")
         return ok
+    }
+
+    /// 同じ録音に続きを録り、途中で一時停止する。
+    /// 一時停止していた間は録音に入らず、続きは本体の後ろにつながること。
+    private static func checkAppend(
+        session: RecordingSession, store: RecordingStore, id: String,
+        before: TimeInterval, duration: TimeInterval,
+        emit: (String) -> Void, check: (String, Bool, String) -> Void
+    ) async {
+        emit("\n[4/4] 一時停止と続きからの録音")
+        let pause: TimeInterval = 1.5
+        do {
+            _ = try await session.start(into: id, captureSystemAudio: !isMicOnly())
+            try? await Task.sleep(for: .seconds(duration / 2))
+            session.pause()
+            check("一時停止できた", session.isPaused, "")
+            try? await Task.sleep(for: .seconds(pause))
+            try session.resume()
+            try? await Task.sleep(for: .seconds(duration / 2))
+        } catch {
+            check("続きを録音できた", false, error.localizedDescription)
+            return
+        }
+
+        let stopped: RecordingMeta?
+        do {
+            stopped = try await session.stop()
+        } catch {
+            check("続きを保存できた", false, error.localizedDescription)
+            return
+        }
+        let total = stopped?.duration ?? 0
+        // 一時停止の 1.5 秒が入っていれば、ここを超える
+        check("前回 + 今回の長さになっている", abs(total - (before + duration)) < duration * 0.25,
+              String(format: "%.2f 秒 (前回 %.2f 秒 + 今回 %.0f 秒、停止 %.1f 秒は除く)",
+                     total, before, duration, pause))
+
+        let paths = store.paths
+        let micSeconds = (try? AudioAppender.duration(of: paths.audioFile(id, track: .mic))) ?? 0
+        let wavSeconds = (try? AudioAppender.duration(of: paths.asrAudioFile(id, track: .mic))) ?? 0
+        check("m4a がつながっている", abs(micSeconds - total) < 0.5, String(format: "%.2f 秒", micSeconds))
+        check("wav がつながっている", abs(wavSeconds - total) < 0.5, String(format: "%.2f 秒", wavSeconds))
+        check("続きの一時ファイルが残っていない",
+              !FileManager.default.fileExists(atPath: paths.pendingAudioFile(id, track: .mic).path), "")
+
+        if stopped?.tracks.contains(.system) == true {
+            let systemSeconds =
+                (try? AudioAppender.duration(of: paths.asrAudioFile(id, track: .system))) ?? 0
+            check("2 トラックの長さが揃っている", abs(systemSeconds - wavSeconds) < 0.5,
+                  String(format: "マイク %.2f 秒 / システム %.2f 秒", wavSeconds, systemSeconds))
+        }
     }
 
     private static func size(of url: URL) -> Int {

@@ -72,7 +72,11 @@ struct RecordingDetailView: View {
         HStack(spacing: 8) {
             Text(Self.dateFormatter.string(from: recording.meta.createdAt))
             separator
-            Text(TimeCode.duration(recording.meta.duration))
+            if model.selectedHasAudio || isLive {
+                Text(TimeCode.duration(recording.meta.duration))
+            } else {
+                Text("録音なし")
+            }
             if let engine = recording.meta.engine {
                 separator
                 Text(engine.displayName)
@@ -81,9 +85,39 @@ struct RecordingDetailView: View {
                 separator
                 Text("2トラック")
             }
+            if !model.isRecording {
+                recordIntoButton
+                    .padding(.leading, 6)
+            }
         }
         .font(Theme.Font.meta)
         .foregroundStyle(Theme.Palette.textMuted)
+    }
+
+    /// この録音に録る。空の録音なら頭から、音声があれば続きから。
+    private var recordIntoButton: some View {
+        let hasAudio = model.selectedHasAudio
+        return Button {
+            Task { await model.recordIntoSelected() }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "record.circle").font(.system(size: 10))
+                Text(hasAudio ? "続きを録音" : "録音を開始")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(Theme.Palette.recording)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Metrics.radius)
+                    .strokeBorder(Theme.Palette.recording.opacity(0.5), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        // 停止は録音バーの「停止」が同じ ⌘R を持つ。両者は同時に出ないので衝突しない
+        .keyboardShortcut("r", modifiers: .command)
+        .help(hasAudio
+            ? "この録音の最後に続けて録音します (⌘R)"
+            : "この録音に録音を始めます (⌘R)")
     }
 
     private var separator: some View {

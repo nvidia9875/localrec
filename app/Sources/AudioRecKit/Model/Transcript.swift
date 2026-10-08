@@ -71,6 +71,22 @@ public struct TranscriptSegment: Codable, Sendable, Equatable, Identifiable {
             edited: edited ?? self.edited
         )
     }
+
+    /// 時刻を `offset` 秒ずらした新しいインスタンスを返す。
+    /// 続きから録音したとき、エンジンが返す「その回の頭からの秒数」を
+    /// 録音全体のタイムラインに載せ直すのに使う。
+    public func shifted(by offset: TimeInterval) -> TranscriptSegment {
+        TranscriptSegment(
+            id: id,
+            start: start + offset,
+            end: end + offset,
+            speaker: speaker,
+            text: text,
+            confidence: confidence,
+            engine: engine,
+            edited: edited
+        )
+    }
 }
 
 /// 文字起こし全体。`transcript.json` として保存される正データ。

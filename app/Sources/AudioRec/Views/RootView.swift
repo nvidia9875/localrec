@@ -65,10 +65,10 @@ private struct EmptyStateView: View {
             Image(systemName: "waveform")
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(Theme.Palette.textMuted)
-            Text("録音を選ぶか、新しく録音を始めてください")
+            Text("録音を選ぶか、「新規」で作ってください")
                 .font(Theme.Font.body)
                 .foregroundStyle(Theme.Palette.textMuted)
-            Text("⌘R で録音開始")
+            Text("⌘N で新規作成。録音は開いた先で ⌘R")
                 .font(Theme.Font.meta)
                 .foregroundStyle(Theme.Palette.textMuted)
         }

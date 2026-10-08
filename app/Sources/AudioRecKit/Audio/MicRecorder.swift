@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import os
 
 public enum MicRecorderError: LocalizedError {
     case permissionDenied
@@ -45,6 +46,10 @@ public final class MicRecorder: @unchecked Sendable {
     // MARK: - 状態
 
     public private(set) var isRecording = false
+
+    /// 一時停止中か。オーディオスレッドからも読むのでロックで守る。
+    public var isPaused: Bool { pausedFlag.withLock { $0 } }
+    private let pausedFlag = OSAllocatedUnfairLock(initialState: false)
 
     private let engine = AVAudioEngine()
     private var writer: TrackWriter?
@@ -93,6 +98,27 @@ public final class MicRecorder: @unchecked Sendable {
         isRecording = true
     }
 
+    /// 一時停止する。入力デバイスも止めるので、メニューバーのマイク表示も消える。
+    ///
+    /// 止めている間のバッファは書かずに捨てる。ファイルも文字起こしも
+    /// 「録っていた区間だけ」を詰めてつなぐので、両者の時刻はずれない。
+    public func pause() {
+        guard isRecording, !isPaused else { return }
+        pausedFlag.withLock { $0 = true }
+        engine.pause()
+    }
+
+    /// 一時停止から再開する。
+    public func resume() throws {
+        guard isRecording, isPaused else { return }
+        do {
+            try engine.start()
+        } catch {
+            throw MicRecorderError.engineStartFailed(error.localizedDescription)
+        }
+        pausedFlag.withLock { $0 = false }
+    }
+
     /// 録音を止めて、録音した長さ (秒) を返す。
     /// 実際に書き込んだフレーム数から算出するので、UI のタイマーより正確。
     @discardableResult
@@ -106,13 +132,14 @@ public final class MicRecorder: @unchecked Sendable {
         let duration = writer?.duration ?? 0
         writer?.close()
         writer = nil
+        pausedFlag.withLock { $0 = false }
         return duration
     }
 
     // MARK: - 内部
 
     private func handle(_ buffer: AVAudioPCMBuffer, hostTime: UInt64) {
-        guard isRecording else { return }
+        guard isRecording, !isPaused else { return }
 
         do {
             if let resampled = try writer?.write(buffer) {
