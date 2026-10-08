@@ -1,0 +1,25 @@
+[project]
+name = "audiorec-asr"
+version = "0.1.0"
+description = "AudioRec の mlx-whisper サイドカー（stdio NDJSON）"
+requires-python = ">=3.12"
+dependencies = [
+    "mlx-whisper>=0.4.3",
+    "numpy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+audiorec-asr = "audiorec_asr.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/audiorec_asr"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>AudioRec</string>
+	<key>CFBundleDisplayName</key>
+	<string>AudioRec</string>
+	<key>CFBundleExecutable</key>
+	<string>AudioRec</string>
+	<key>CFBundleIconFile</key>
+	<string>AudioRec</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.shun.audiorec</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+
+	<!--
+	  ウインドウの状態復元を無効にする。
+	  有効なままだとクラッシュ後の起動で「ウインドウを再度開きますか？」の
+	  モーダルが applicationDidFinishLaunching をブロックし、
+	  --snapshot や --selftest のようなヘッドレス実行が永久に止まる。
+	-->
+	<key>NSQuitAlwaysKeepsWindows</key>
+	<false/>
+
+	<!-- TCC 権限の説明文。これが無いとダイアログが出ずクラッシュする -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>会議やメモの音声を録音して文字起こしするためにマイクを使用します。音声はこの Mac の中だけで処理され、外部に送信されません。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>録音した音声を端末内で日本語テキストに変換するために音声認識を使用します。音声は外部サーバーに送信されません。</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>オンライン会議の相手の声を文字起こしするために、この Mac が再生している音声を録音します。</string>
+</dict>
+</plist>

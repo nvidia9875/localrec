@@ -1,0 +1,15 @@
+# ビルド成果物
+app/.build/
+dist/
+
+# Python
+sidecar/.venv/
+__pycache__/
+*.pyc
+
+# 評価用の生成物（音声は再生成できる。結果レポートは残す）
+eval/fixtures/
+eval/results/hypotheses/
+
+# macOS
+.DS_Store
