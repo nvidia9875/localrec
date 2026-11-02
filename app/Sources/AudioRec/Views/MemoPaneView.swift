@@ -9,8 +9,11 @@ struct MemoPaneView: View {
     @Bindable var model: AppModel
     let recording: Recording
 
-    /// テキストエディタが内部に持つ余白。本文の左端を他タブと揃えるために差し引く。
-    private static let editorInset: CGFloat = 5
+    private static let placeholder = """
+        決まったこと、宿題、音声に残らなかった前提などを書きます。
+        Markdown で書けます（# 見出し、- 箇条書き、- [ ] 宿題、**太字**）。
+        サマリーを作るときに文字起こしと一緒に渡されます。
+        """
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,31 +24,12 @@ struct MemoPaneView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// 上下の余白はエディタの内側に持たせる（スクロールしたときに本文が枠で切れないように）。
     private var editor: some View {
-        TextEditor(text: $model.memoDraft)
-            .textEditorStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .font(Theme.Font.body)
-            .foregroundStyle(Theme.Palette.text)
-            .lineSpacing(Theme.Metrics.bodyLineSpacing)
-            .overlay(alignment: .topLeading) { placeholder }
+        MarkdownMemoEditor(text: $model.memoDraft, placeholder: Self.placeholder)
             .frame(maxWidth: Theme.Metrics.maxContentWidth, alignment: .leading)
-            .padding(.horizontal, Theme.Metrics.contentPadding - Self.editorInset)
-            .padding(.vertical, 20 - Self.editorInset)
+            .padding(.horizontal, Theme.Metrics.contentPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private var placeholder: some View {
-        if model.memoDraft.isEmpty {
-            Text("決まったこと、宿題、音声に残らなかった前提などを書きます。\nサマリーを作るときに文字起こしと一緒に渡されます。")
-                .font(Theme.Font.body)
-                .foregroundStyle(Theme.Palette.textMuted)
-                .lineSpacing(Theme.Metrics.bodyLineSpacing)
-                .padding(.top, 8)
-                .padding(.leading, Self.editorInset)
-                .allowsHitTesting(false)
-        }
     }
 
     private var footer: some View {
@@ -53,6 +37,10 @@ struct MemoPaneView: View {
             Text(model.isMemoSaved ? "保存済み" : "編集中…")
                 .font(Theme.Font.meta)
                 .foregroundStyle(Theme.Palette.textMuted)
+            Text("Markdown")
+                .font(Theme.Font.meta)
+                .foregroundStyle(Theme.Palette.textMuted)
+                .help("# 見出し、- 箇条書き、- [ ] 宿題、**太字**、`コード` が使えます。memo.md にそのまま保存されます")
             Spacer()
             summarizeButton
         }

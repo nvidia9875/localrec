@@ -16,13 +16,13 @@ enum Theme {
         /// サイドバー背景。Notion は本文よりわずかに沈ませる。
         static let sidebar = Color(nsColor: .audioRecDynamic(light: 0xF7F7F5, dark: 0x202020))
         /// hover / 選択中の面
-        static let surfaceHover = Color(nsColor: .audioRecDynamic(light: 0xEFEFEE, dark: 0x2C2C2C))
+        static let surfaceHover = Color(nsColor: NSPalette.surfaceHover)
         static let surfaceSelected = Color(nsColor: .audioRecDynamic(light: 0xE8E7E4, dark: 0x333333))
 
         /// 本文。真っ黒ではなくわずかに温かい墨色 — Notion の特徴。
-        static let text = Color(nsColor: .audioRecDynamic(light: 0x37352F, dark: 0xD4D4D4))
+        static let text = Color(nsColor: NSPalette.text)
         /// 補助文字 (タイムスタンプ、日付、件数)
-        static let textMuted = Color(nsColor: .audioRecDynamic(light: 0x9B9A97, dark: 0x7F7F7F))
+        static let textMuted = Color(nsColor: NSPalette.textMuted)
         /// 未確定 (volatile) の文字起こし
         static let textVolatile = Color(nsColor: .audioRecDynamic(light: 0xB4B3AF, dark: 0x6B6B6B))
 
@@ -41,6 +41,13 @@ enum Theme {
 
         /// 再生中セグメントのハイライト
         static let highlight = Color(nsColor: .audioRecDynamic(light: 0xFDF3D9, dark: 0x3A3320))
+    }
+
+    /// AppKit のビュー（メモ欄の NSTextView）で使う色。値は `Palette` と共有する。
+    enum NSPalette {
+        static let text = NSColor.audioRecDynamic(light: 0x37352F, dark: 0xD4D4D4)
+        static let textMuted = NSColor.audioRecDynamic(light: 0x9B9A97, dark: 0x7F7F7F)
+        static let surfaceHover = NSColor.audioRecDynamic(light: 0xEFEFEE, dark: 0x2C2C2C)
     }
 
     // MARK: - 字送り

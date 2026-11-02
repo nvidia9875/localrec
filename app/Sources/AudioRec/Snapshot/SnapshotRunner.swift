@@ -73,6 +73,12 @@ enum SnapshotRunner {
                 written += 1
 
                 try write(
+                    view: scene(state: .memoEmpty, size: size),
+                    scheme: scheme, size: size,
+                    to: outputDirectory.appendingPathComponent("memo-empty_\(sizeName)_\(suffix).png"))
+                written += 1
+
+                try write(
                     view: scene(state: .search, size: size),
                     scheme: scheme, size: size,
                     to: outputDirectory.appendingPathComponent("search_\(sizeName)_\(suffix).png"))
@@ -162,6 +168,7 @@ enum SnapshotRunner {
     private enum SceneState {
         case transcript
         case memo
+        case memoEmpty
         case summary
         case search
         case recording
@@ -177,6 +184,9 @@ enum SnapshotRunner {
         case .memo:
             model.detailTab = .memo
             model.memoDraft = SnapshotFixtures.memo
+        case .memoEmpty:
+            model.detailTab = .memo
+            model.memoDraft = ""
         case .summary:
             model.detailTab = .summary
             model.injectSummaryForSnapshot(SnapshotFixtures.summary)
