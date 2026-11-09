@@ -7,7 +7,7 @@ struct AudioRecApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(model: appDelegate.model)
                 .frame(minWidth: 820, minHeight: 520)
         }
         .defaultSize(width: 1120, height: 760)
@@ -16,6 +16,9 @@ struct AudioRecApp: App {
             // ⌘N は「新規作成（録音せずに作る）」に使う。
             // 既定の「新規ウインドウ」は録音状態を別々に持つ窓が増えるだけなので外す。
             CommandGroup(replacing: .newItem) {}
+            CommandGroup(after: .windowArrangement) {
+                MicPanelMenuItem(appDelegate: appDelegate)
+            }
         }
     }
 }
@@ -23,7 +26,15 @@ struct AudioRecApp: App {
 /// SwiftPM で組んだ .app は Dock からの起動時に前面化しないことがあるため、
 /// 明示的に activation policy を設定する。
 @MainActor
+@Observable
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// 本体のウインドウとマイクパネルで同じ状態を見る。
+    /// 診断モードでは作らないよう、最初に触れたときに作る。
+    @ObservationIgnored lazy var model = AppModel()
+
+    /// 常時表示のマイクパネル。通常起動のときだけ作る。
+    private(set) var micPanel: MicPanelController?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // --snapshot <dir> が渡されていれば UI を PNG に書き出して終了する。
         // 画面収録の権限が要らない視覚確認・視覚回帰の手段。
@@ -153,6 +164,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+
+        let micPanel = MicPanelController(model: model) { [weak self] in
+            self?.showMainWindow()
+        }
+        micPanel.install()
+        self.micPanel = micPanel
+    }
+
+    /// マイクパネルから本体を開く。録音中ならその録音を出す。
+    func showMainWindow() {
+        model.selectCurrentRecording()
+        NSApp.activate()
+        let main = NSApp.windows.first { !($0 is NSPanel) && $0.canBecomeMain }
+        if let main {
+            if main.isMiniaturized { main.deminiaturize(nil) }
+            main.makeKeyAndOrderFront(nil)
+        }
     }
 
     private func runSnapshotsAndExit(to directory: URL) {
@@ -169,5 +197,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+}
+
+/// 「ウインドウ」メニューのマイクパネルの表示切り替え。
+private struct MicPanelMenuItem: View {
+    let appDelegate: AppDelegate
+
+    var body: some View {
+        let isVisible = appDelegate.micPanel?.isVisible ?? false
+        Button(isVisible ? "マイクパネルを隠す" : "マイクパネルを表示") {
+            appDelegate.micPanel?.toggle()
+        }
+        .keyboardShortcut("m", modifiers: [.command, .shift])
+        .disabled(appDelegate.micPanel == nil)
     }
 }

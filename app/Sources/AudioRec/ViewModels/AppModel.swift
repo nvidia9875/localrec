@@ -172,6 +172,36 @@ final class AppModel {
         }
     }
 
+    /// 新しい録音を作ってすぐ録り始める。常時表示のマイクパネルから使う。
+    ///
+    /// パネルは本体のウインドウが後ろにあっても押せるので、
+    /// 「どの録音に録るか」を選ばせずに新しく作る。
+    func startNewRecording() async {
+        guard !session.isRecording else { return }
+        // 開いている録音の書きかけを先に落とす。選択がこの後切り替わるため
+        await flushTitle()
+        await flushMemo()
+        playback.load(url: nil)
+        do {
+            let meta = try await session.start(
+                engineKind: engineKind, captureSystemAudio: captureSystemAudio)
+            recordings.insert(meta, at: 0)
+            await searchIndex.update(recordingID: meta.id, title: meta.title, transcript: .empty)
+            selectedID = meta.id
+            detailTab = .transcript
+        } catch {
+            errorMessage = error.localizedDescription
+            loadPlaybackAudio()
+        }
+    }
+
+    /// 録音中の録音を詳細ペインに出す。録音していなければ何もしない。
+    func selectCurrentRecording() {
+        guard let id = session.currentID, selectedID != id else { return }
+        selectedID = id
+        detailTab = .transcript
+    }
+
     /// 録音せずに空の録音を作る。メモを先に書いておき、録音は後から始められる。
     func createEmptyRecording() async {
         do {

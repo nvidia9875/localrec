@@ -85,6 +85,41 @@ enum SnapshotRunner {
                 written += 1
             }
         }
+        written += try writeMicPills(to: outputDirectory)
+        return written
+    }
+
+    /// 常時表示のマイクパネルを状態ごとに書き出す。
+    private static func writeMicPills(to directory: URL) throws -> Int {
+        let margin = MicPillContent.Metrics.shadowMargin * 2
+        let size = CGSize(
+            width: MicPillContent.Metrics.width + margin,
+            height: MicPillContent.Metrics.height + margin)
+        let states: [(name: String, status: MicStatus)] = [
+            ("idle", .idle),
+            ("recording", .recording),
+            ("paused", .paused),
+            ("saving", .saving),
+            ("downloading", .downloading(0.37)),
+            ("denied", .permissionDenied),
+            ("nodevice", .noInputDevice),
+        ]
+
+        var written = 0
+        for scheme in [ColorScheme.light, .dark] {
+            let suffix = scheme == .dark ? "dark" : "light"
+            for (name, status) in states {
+                let view = MicPillContent(
+                    status: status, elapsed: 754, levels: SnapshotScene.demoLevels,
+                    deviceName: "MacBook Pro のマイク")
+                    // 影が見えるよう、本文の背景の上に置く
+                    .background(Theme.Palette.sidebar)
+                try write(
+                    view: view, scheme: scheme, size: size,
+                    to: directory.appendingPathComponent("micpanel-\(name)_\(suffix).png"))
+                written += 1
+            }
+        }
         return written
     }
 
@@ -238,7 +273,7 @@ private struct SnapshotScene: View {
     }
 
     /// 波形が動いて見えるよう、それらしい起伏を持つ固定値を使う。
-    private static let demoLevels: [Float] = (0..<64).map { i in
+    static let demoLevels: [Float] = (0..<64).map { i in
         let base = sin(Double(i) * 0.35) * 0.35 + 0.45
         let jitter = sin(Double(i) * 1.7) * 0.18
         return Float(max(0.02, min(1.0, base + jitter)))

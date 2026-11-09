@@ -2,7 +2,8 @@ import AudioRecKit
 import SwiftUI
 
 struct RootView: View {
-    @State private var model = AppModel()
+    /// マイクパネルと同じ状態を見るため、アプリ側で作ったものを受け取る。
+    let model: AppModel
 
     var body: some View {
         NavigationSplitView {
